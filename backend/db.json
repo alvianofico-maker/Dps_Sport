@@ -1,0 +1,19 @@
+{
+  "products": [
+    { "id": "p1", "name": "Predator OD 38", "category": "Senapan PCP", "caliber": "4.5 mm", "length": "100 cm", "weight": "3.2 kg", "priceOld": 1900000, "price": 1800000, "discount": true, "image": null, "featured": true },
+    { "id": "p2", "name": "Mauser M18", "category": "Senapan Per", "caliber": "4.5 mm", "length": "108 cm", "weight": "3.4 kg", "priceOld": 2200000, "price": 2000000, "discount": true, "image": null, "featured": true },
+    { "id": "p3", "name": "Black Army Magnum", "category": "Senapan PCP", "caliber": "4.5 mm", "length": "102 cm", "weight": "3.1 kg", "priceOld": 2100000, "price": 1950000, "discount": true, "image": null, "featured": true },
+    { "id": "p4", "name": "Sharp River", "category": "Senapan Angin", "caliber": "4.5 mm", "length": "105 cm", "weight": "3.0 kg", "priceOld": 1750000, "price": 1600000, "discount": true, "image": null, "featured": true },
+    { "id": "p5", "name": "Bullpup 500CC", "category": "Senapan PCP", "caliber": "4.5 mm", "length": "90 cm", "weight": "3.3 kg", "priceOld": 2300000, "price": 2100000, "discount": true, "image": null, "featured": true },
+    { "id": "p6", "name": "Tactical X9", "category": "Senapan PCP", "caliber": "4.5 mm", "length": "103 cm", "weight": "3.6 kg", "priceOld": 2400000, "price": 2200000, "discount": true, "image": null, "featured": true },
+    { "id": "p7", "name": "Scope Hunter 3-9x40", "category": "Aksesoris", "caliber": "-", "length": "32 cm", "weight": "0.5 kg", "priceOld": 650000, "price": 580000, "discount": true, "image": null, "featured": false },
+    { "id": "p8", "name": "Silincer Alumunium", "category": "Sparepart", "caliber": "-", "length": "18 cm", "weight": "0.2 kg", "priceOld": 250000, "price": 220000, "discount": true, "image": null, "featured": false }
+  ],
+  "settings": {
+    "whatsapp": "6282178496326",
+    "email": "dpssport.id@gmail.com",
+    "phone": "0821-7849-6326",
+    "instagram": "@dps.sport",
+    "youtube": "https://www.youtube.com/@DwiPrast177"
+  }
+}
