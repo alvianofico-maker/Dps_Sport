@@ -33,6 +33,7 @@ export default function ProductCard({ product, settings, index = 0 }) {
       </div>
       <div className="card-body">
         <h3>{product.name}</h3>
+        {product.description && <p className="card-description">{product.description}</p>}
         <div className="specs">
           <span>🎯 Kaliber {product.caliber}</span>
           <span>📏 Panjang {product.length}</span>

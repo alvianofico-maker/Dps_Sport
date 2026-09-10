@@ -7,6 +7,7 @@ const ADMIN_PASSWORD = "dpssport123"; // ganti password ini sesuai kebutuhan
 const EMPTY_FORM = {
   name: "",
   category: "Senapan PCP",
+  description: "",
   caliber: "",
   length: "",
   weight: "",
@@ -64,6 +65,7 @@ export default function Admin() {
     setForm({
       name: p.name,
       category: p.category,
+      description: p.description || "",
       caliber: p.caliber,
       length: p.length,
       weight: p.weight,
@@ -186,6 +188,15 @@ export default function Admin() {
                   value={form.category}
                   onChange={(e) => setForm({ ...form, category: e.target.value })}
                   placeholder="mis. Senapan PCP"
+                />
+              </div>
+              <div className="field full">
+                <label>Deskripsi Produk</label>
+                <textarea
+                  rows="3"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="Tulis deskripsi singkat produk"
                 />
               </div>
               <div className="field">

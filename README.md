@@ -1,7 +1,7 @@
 # Dps Sport — Website Katalog Airgun & Sparepart (Full-Stack)
 
-Full-stack web catalog: **React (Vite)** di frontend + **Node.js/Express** di backend,
-dengan penyimpanan data produk berbasis file JSON (`backend/db.json`) dan upload foto produk.
+Full-stack web catalog: **React (Vite)** di frontend + **Node.js/Express** di backend.
+Backend mendukung Supabase untuk database dan storage, dengan fallback JSON lokal untuk development.
 
 ## Struktur Folder
 
@@ -51,10 +51,22 @@ Buka `http://localhost:5173/admin` (atau klik link "⚙️ Admin" di footer).
 Dari admin panel kamu bisa:
 - Tambah produk baru (termasuk upload foto)
 - Edit produk yang sudah ada
+- Mengisi dan mengubah deskripsi produk
 - Hapus produk
-- Data langsung tersimpan ke `backend/db.json` dan foto ke `backend/uploads/`
+- Data tersimpan ke Supabase jika env Supabase aktif, atau `backend/db.json` saat fallback lokal
 
 ## Konfigurasi Penting
+
+### Supabase
+
+1. Buat project di [Supabase](https://supabase.com/).
+2. Buka **SQL Editor**, lalu jalankan seluruh isi `backend/supabase-schema.sql`.
+3. Salin `backend/.env.example` menjadi `backend/.env`.
+4. Isi `SUPABASE_URL` dan `SUPABASE_SERVICE_ROLE_KEY` dari **Project Settings → API**.
+  Service role key hanya boleh disimpan di backend dan jangan di-commit ke GitHub.
+5. Jalankan backend seperti biasa. Saat env tersedia, CRUD admin dan data katalog memakai Supabase.
+
+Bucket Storage yang digunakan adalah `product-images` dan harus public agar foto produk tampil di katalog.
 
 1. **Nomor WhatsApp** — buka `http://localhost:5173/admin` tidak mengatur ini;
    edit langsung di `backend/db.json` bagian `"settings"` lalu restart backend, contoh:

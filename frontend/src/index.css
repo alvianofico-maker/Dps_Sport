@@ -229,6 +229,7 @@ header.site-header.is-hidden{ transform:translateY(calc(-100% - 14px)); opacity:
 .badge{ position:absolute; top:12px; left:12px; z-index:2; background:rgba(62,207,110,.9); color:#06210f; border:1px solid var(--green); font-size:10.5px; font-weight:700; letter-spacing:.06em; padding:5px 10px; border-radius:6px; text-transform:uppercase;}
 .card-body{ padding:18px 18px 20px; display:flex; flex-direction:column; gap:12px; flex:1;}
 .card-body h3{ font-size:16.5px; color:var(--text-hi); letter-spacing:.01em; }
+.card-description{ color:var(--text-mid); font-size:13px; line-height:1.45; }
 .specs{ display:flex; gap:14px; flex-wrap:wrap; font-size:12px; color:var(--text-low); }
 .specs span{ display:flex; align-items:center; gap:5px; }
 .price-row{ display:flex; align-items:baseline; gap:10px; margin-top:2px;}

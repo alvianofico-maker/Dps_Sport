@@ -1,14 +1,22 @@
 const express = require("express");
+require("dotenv").config();
 const cors = require("cors");
 const multer = require("multer");
 const fs = require("fs");
 const path = require("path");
 const { nanoid } = require("nanoid");
+const { createClient } = require("@supabase/supabase-js");
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 const DB_PATH = path.join(__dirname, "db.json");
 const UPLOAD_DIR = path.join(__dirname, "uploads");
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "product-images";
+const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+  ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
+  : null;
 
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 
@@ -24,14 +32,80 @@ function writeDB(data) {
   fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
 }
 
+function fromProduct(row) {
+  return {
+    ...row,
+    priceOld: row.price_old ?? row.priceOld ?? 0,
+    price: row.price ?? 0,
+  };
+}
+
+function toProduct(row) {
+  const { priceOld, ...rest } = row;
+  return { ...rest, price_old: Number(priceOld) || 0 };
+}
+
+function fromSettings(row) {
+  return row;
+}
+
+async function getSettings() {
+  if (!supabase) return readDB().settings;
+  const { data, error } = await supabase.from("settings").select("*").eq("id", 1).single();
+  if (error) throw error;
+  return fromSettings(data);
+}
+
+async function saveSettings(values) {
+  if (!supabase) {
+    const db = readDB();
+    db.settings = { ...db.settings, ...values };
+    writeDB(db);
+    return db.settings;
+  }
+  const { data, error } = await supabase.from("settings").upsert({ id: 1, ...values }).select().single();
+  if (error) throw error;
+  return fromSettings(data);
+}
+
+async function getProducts() {
+  if (!supabase) return readDB().products;
+  const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
+  if (error) throw error;
+  return data.map(fromProduct);
+}
+
+async function getProduct(id) {
+  if (!supabase) return readDB().products.find((product) => product.id === id);
+  const { data, error } = await supabase.from("products").select("*").eq("id", id).single();
+  if (error && error.code === "PGRST116") return null;
+  if (error) throw error;
+  return fromProduct(data);
+}
+
+async function uploadImage(file) {
+  if (!file) return null;
+  if (!supabase) return `/uploads/${file.filename}`;
+  const filePath = `${nanoid(12)}${path.extname(file.originalname)}`;
+  const { error } = await supabase.storage.from(SUPABASE_BUCKET).upload(filePath, file.buffer, {
+    contentType: file.mimetype,
+    upsert: false,
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(filePath);
+  return data.publicUrl;
+}
+
 // ---------- multer (image upload) ----------
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOAD_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${nanoid(10)}${ext}`);
-  },
-});
+const storage = supabase
+  ? multer.memoryStorage()
+  : multer.diskStorage({
+      destination: (req, file, cb) => cb(null, UPLOAD_DIR),
+      filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname);
+        cb(null, `${nanoid(10)}${ext}`);
+      },
+    });
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -47,107 +121,129 @@ const upload = multer({
 app.get("/api/health", (req, res) => res.json({ ok: true }));
 
 // --- settings (kontak, whatsapp, dll) ---
-app.get("/api/settings", (req, res) => {
-  const db = readDB();
-  res.json(db.settings);
+app.get("/api/settings", async (req, res, next) => {
+  try {
+    res.json(await getSettings());
+  } catch (error) {
+    next(error);
+  }
 });
-app.put("/api/settings", (req, res) => {
-  const db = readDB();
-  db.settings = { ...db.settings, ...req.body };
-  writeDB(db);
-  res.json(db.settings);
+app.put("/api/settings", async (req, res, next) => {
+  try {
+    res.json(await saveSettings(req.body));
+  } catch (error) {
+    next(error);
+  }
 });
 
 // --- products ---
-app.get("/api/products", (req, res) => {
-  const db = readDB();
+app.get("/api/products", async (req, res, next) => {
   const { category, q } = req.query;
-  let items = db.products;
-  if (category && category !== "Semua") {
-    items = items.filter((p) => p.category === category);
+  try {
+    let items = await getProducts();
+    if (category && category !== "Semua") items = items.filter((p) => p.category === category);
+    if (q) items = items.filter((p) => p.name.toLowerCase().includes(q.toLowerCase()));
+    res.json(items);
+  } catch (error) {
+    next(error);
   }
-  if (q) {
-    const term = q.toLowerCase();
-    items = items.filter((p) => p.name.toLowerCase().includes(term));
+});
+
+app.get("/api/products/:id", async (req, res, next) => {
+  try {
+    const item = await getProduct(req.params.id);
+    if (!item) return res.status(404).json({ error: "Produk tidak ditemukan" });
+    res.json(item);
+  } catch (error) {
+    next(error);
   }
-  res.json(items);
 });
 
-app.get("/api/products/:id", (req, res) => {
-  const db = readDB();
-  const item = db.products.find((p) => p.id === req.params.id);
-  if (!item) return res.status(404).json({ error: "Produk tidak ditemukan" });
-  res.json(item);
-});
-
-app.post("/api/products", upload.single("image"), (req, res) => {
-  const db = readDB();
-  const body = req.body;
-  const newProduct = {
-    id: nanoid(8),
-    name: body.name || "Produk Baru",
-    category: body.category || "Lainnya",
-    caliber: body.caliber || "-",
-    length: body.length || "-",
-    weight: body.weight || "-",
-    priceOld: Number(body.priceOld) || 0,
-    price: Number(body.price) || 0,
-    discount: body.discount === "true" || body.discount === true,
-    featured: body.featured === "true" || body.featured === true,
-    image: req.file ? `/uploads/${req.file.filename}` : null,
-  };
-  db.products.unshift(newProduct);
-  writeDB(db);
-  res.status(201).json(newProduct);
-});
-
-app.put("/api/products/:id", upload.single("image"), (req, res) => {
-  const db = readDB();
-  const idx = db.products.findIndex((p) => p.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Produk tidak ditemukan" });
-
-  const body = req.body;
-  const existing = db.products[idx];
-
-  const updated = {
-    ...existing,
-    name: body.name ?? existing.name,
-    category: body.category ?? existing.category,
-    caliber: body.caliber ?? existing.caliber,
-    length: body.length ?? existing.length,
-    weight: body.weight ?? existing.weight,
-    priceOld: body.priceOld !== undefined ? Number(body.priceOld) : existing.priceOld,
-    price: body.price !== undefined ? Number(body.price) : existing.price,
-    discount: body.discount !== undefined ? (body.discount === "true" || body.discount === true) : existing.discount,
-    featured: body.featured !== undefined ? (body.featured === "true" || body.featured === true) : existing.featured,
-  };
-
-  if (req.file) {
-    // remove old image file if it existed
-    if (existing.image) {
-      const oldPath = path.join(__dirname, existing.image);
-      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+app.post("/api/products", upload.single("image"), async (req, res, next) => {
+  try {
+    const body = req.body;
+    const newProduct = {
+      id: nanoid(8),
+      name: body.name || "Produk Baru",
+      category: body.category || "Lainnya",
+      description: body.description || "",
+      caliber: body.caliber || "-",
+      length: body.length || "-",
+      weight: body.weight || "-",
+      priceOld: Number(body.priceOld) || 0,
+      price: Number(body.price) || 0,
+      discount: body.discount === "true" || body.discount === true,
+      featured: body.featured === "true" || body.featured === true,
+      image: await uploadImage(req.file),
+    };
+    if (!supabase) {
+      const db = readDB();
+      db.products.unshift(newProduct);
+      writeDB(db);
+    } else {
+      const { error } = await supabase.from("products").insert(toProduct(newProduct));
+      if (error) throw error;
     }
-    updated.image = `/uploads/${req.file.filename}`;
+    res.status(201).json(newProduct);
+  } catch (error) {
+    next(error);
   }
-
-  db.products[idx] = updated;
-  writeDB(db);
-  res.json(updated);
 });
 
-app.delete("/api/products/:id", (req, res) => {
-  const db = readDB();
-  const idx = db.products.findIndex((p) => p.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: "Produk tidak ditemukan" });
-
-  const [removed] = db.products.splice(idx, 1);
-  if (removed.image) {
-    const imgPath = path.join(__dirname, removed.image);
-    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+app.put("/api/products/:id", upload.single("image"), async (req, res, next) => {
+  try {
+    const existing = await getProduct(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Produk tidak ditemukan" });
+    const body = req.body;
+    const updated = {
+      ...existing,
+      name: body.name ?? existing.name,
+      category: body.category ?? existing.category,
+      description: body.description ?? existing.description ?? "",
+      caliber: body.caliber ?? existing.caliber,
+      length: body.length ?? existing.length,
+      weight: body.weight ?? existing.weight,
+      priceOld: body.priceOld !== undefined ? Number(body.priceOld) : existing.priceOld,
+      price: body.price !== undefined ? Number(body.price) : existing.price,
+      discount: body.discount !== undefined ? (body.discount === "true" || body.discount === true) : existing.discount,
+      featured: body.featured !== undefined ? (body.featured === "true" || body.featured === true) : existing.featured,
+      image: req.file ? await uploadImage(req.file) : existing.image,
+    };
+    if (!supabase) {
+      const db = readDB();
+      db.products[db.products.findIndex((product) => product.id === req.params.id)] = updated;
+      writeDB(db);
+    } else {
+      const { error } = await supabase.from("products").update(toProduct(updated)).eq("id", req.params.id);
+      if (error) throw error;
+    }
+    res.json(updated);
+  } catch (error) {
+    next(error);
   }
-  writeDB(db);
-  res.json({ success: true });
+});
+
+app.delete("/api/products/:id", async (req, res, next) => {
+  try {
+    const existing = await getProduct(req.params.id);
+    if (!existing) return res.status(404).json({ error: "Produk tidak ditemukan" });
+    if (!supabase) {
+      const db = readDB();
+      const idx = db.products.findIndex((product) => product.id === req.params.id);
+      db.products.splice(idx, 1);
+      if (existing.image) {
+        const imgPath = path.join(__dirname, existing.image);
+        if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+      }
+      writeDB(db);
+    } else {
+      const { error } = await supabase.from("products").delete().eq("id", req.params.id);
+      if (error) throw error;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
 });
 
 // error handler (multer etc.)
