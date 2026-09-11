@@ -21,7 +21,7 @@ const supabase = hasSupabaseConfig
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   : null;
 
-if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
+if (!process.env.VERCEL && !fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 
 app.use(cors());
 app.use(express.json());
@@ -94,7 +94,10 @@ async function getProduct(id) {
 
 async function uploadImage(file) {
   if (!file) return null;
-  if (!supabase) return `/uploads/${file.filename}`;
+  if (!supabase) {
+    if (process.env.VERCEL) throw new Error("Supabase wajib dikonfigurasi untuk upload gambar di Vercel");
+    return `/uploads/${file.filename}`;
+  }
   const filePath = `${nanoid(12)}${path.extname(file.originalname)}`;
   const { error } = await supabase.storage.from(SUPABASE_BUCKET).upload(filePath, file.buffer, {
     contentType: file.mimetype,
@@ -121,7 +124,7 @@ async function resolveImageSlots(rawSlots, files = [], fallback = []) {
 }
 
 // ---------- multer (image upload) ----------
-const storage = supabase
+const storage = supabase || process.env.VERCEL
   ? multer.memoryStorage()
   : multer.diskStorage({
       destination: (req, file, cb) => cb(null, UPLOAD_DIR),
