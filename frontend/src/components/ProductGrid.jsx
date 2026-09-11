@@ -30,9 +30,7 @@ export default function ProductGrid({ settings, featured = false }) {
 
     if (!featured) return matchingProducts;
 
-    const featuredProducts = matchingProducts.filter((p) => p.featured);
-    const otherProducts = matchingProducts.filter((p) => !p.featured);
-    return [...featuredProducts, ...otherProducts].slice(0, 8);
+    return matchingProducts.filter((p) => p.featured).slice(0, 8);
   }, [products, search, featured]);
 
   return (

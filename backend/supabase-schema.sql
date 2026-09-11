@@ -11,8 +11,12 @@ create table if not exists public.products (
   discount boolean not null default false,
   featured boolean not null default false,
   image text,
+  images jsonb not null default '[]'::jsonb,
   created_at timestamptz not null default now()
 );
+
+alter table public.products add column if not exists specifications text not null default '';
+alter table public.products add column if not exists images jsonb not null default '[]'::jsonb;
 
 create table if not exists public.settings (
   id integer primary key default 1 check (id = 1),

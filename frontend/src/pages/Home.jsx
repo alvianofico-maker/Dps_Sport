@@ -1,6 +1,5 @@
 import React from "react";
 import Hero from "../components/Hero.jsx";
-import Features from "../components/Features.jsx";
 import ProductGrid from "../components/ProductGrid.jsx";
 import Strip from "../components/Strip.jsx";
 import { waHref } from "../api.js";
@@ -14,7 +13,6 @@ export default function Home({ settings }) {
   return (
     <main>
       <Hero settings={settings} />
-      <Features />
       <ProductGrid settings={settings} featured />
       <Strip />
       <a href={wa} target="_blank" rel="noopener noreferrer" className="fab" aria-label="WhatsApp">

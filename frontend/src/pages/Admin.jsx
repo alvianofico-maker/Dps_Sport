@@ -6,11 +6,8 @@ const ADMIN_PASSWORD = "dpssport123"; // ganti password ini sesuai kebutuhan
 
 const EMPTY_FORM = {
   name: "",
-  category: "Senapan PCP",
   description: "",
-  caliber: "",
-  length: "",
-  weight: "",
+  specifications: "",
   priceOld: "",
   price: "",
   discount: false,
@@ -25,7 +22,7 @@ export default function Admin() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [imageFile, setImageFile] = useState(null);
+  const [imageSlots, setImageSlots] = useState([null, null, null]);
   const [editingId, setEditingId] = useState(null);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState({ type: "", text: "" });
@@ -56,7 +53,7 @@ export default function Admin() {
 
   function resetForm() {
     setForm(EMPTY_FORM);
-    setImageFile(null);
+    setImageSlots([null, null, null]);
     setEditingId(null);
   }
 
@@ -64,17 +61,14 @@ export default function Admin() {
     setEditingId(p.id);
     setForm({
       name: p.name,
-      category: p.category,
       description: p.description || "",
-      caliber: p.caliber,
-      length: p.length,
-      weight: p.weight,
+      specifications: p.specifications || [p.caliber, p.length, p.weight].filter(Boolean).filter((value) => value !== "-").join(" | "),
       priceOld: p.priceOld,
       price: p.price,
       discount: p.discount,
       featured: p.featured,
     });
-    setImageFile(null);
+    setImageSlots([...(p.images || (p.image ? [p.image] : [])), null, null].slice(0, 3));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -85,7 +79,10 @@ export default function Admin() {
     try {
       const fd = new FormData();
       Object.entries(form).forEach(([k, v]) => fd.append(k, v));
-      if (imageFile) fd.append("image", imageFile);
+      fd.append("imageSlots", JSON.stringify(imageSlots.map((slot) => (slot?.file ? null : slot))));
+      imageSlots.forEach((slot, index) => {
+        if (slot?.file) fd.append(`image${index}`, slot.file);
+      });
 
       if (editingId) {
         await api.updateProduct(editingId, fd);
@@ -181,15 +178,6 @@ export default function Admin() {
                   placeholder="mis. Predator OD 38"
                 />
               </div>
-              <div className="field">
-                <label>Kategori</label>
-                <input
-                  required
-                  value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
-                  placeholder="mis. Senapan PCP"
-                />
-              </div>
               <div className="field full">
                 <label>Deskripsi Produk</label>
                 <textarea
@@ -199,28 +187,13 @@ export default function Admin() {
                   placeholder="Tulis deskripsi singkat produk"
                 />
               </div>
-              <div className="field">
-                <label>Kaliber</label>
-                <input
-                  value={form.caliber}
-                  onChange={(e) => setForm({ ...form, caliber: e.target.value })}
-                  placeholder="mis. 4.5 mm"
-                />
-              </div>
-              <div className="field">
-                <label>Panjang</label>
-                <input
-                  value={form.length}
-                  onChange={(e) => setForm({ ...form, length: e.target.value })}
-                  placeholder="mis. 100 cm"
-                />
-              </div>
-              <div className="field">
-                <label>Berat</label>
-                <input
-                  value={form.weight}
-                  onChange={(e) => setForm({ ...form, weight: e.target.value })}
-                  placeholder="mis. 3.2 kg"
+              <div className="field full">
+                <label>Spesifikasi Produk</label>
+                <textarea
+                  rows="3"
+                  value={form.specifications}
+                  onChange={(e) => setForm({ ...form, specifications: e.target.value })}
+                  placeholder="Contoh: Kaliber 4.5 mm | Panjang 100 cm | Berat 3.2 kg"
                 />
               </div>
               <div className="field">
@@ -243,8 +216,29 @@ export default function Admin() {
                 />
               </div>
               <div className="field">
-                <label>Foto Produk</label>
-                <input type="file" accept="image/*" onChange={(e) => setImageFile(e.target.files[0])} />
+                <label>Foto Produk (maks. 3)</label>
+                <div className="image-slots">
+                  {imageSlots.map((slot, index) => {
+                    const preview = slot?.file ? slot.preview : slot;
+                    return (
+                      <div className="image-slot" key={index}>
+                        <div className="image-slot-preview">
+                          {preview ? <img src={preview} alt={`Foto ${index + 1}`} /> : <span>Foto {index + 1}</span>}
+                        </div>
+                        <label className="image-slot-label">
+                          Ganti Foto {index + 1}
+                          <input type="file" accept="image/*" onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (!file) return;
+                            setImageSlots((slots) => slots.map((current, slotIndex) => slotIndex === index ? { file, preview: URL.createObjectURL(file) } : current));
+                          }} />
+                        </label>
+                        {slot && <button type="button" className="image-slot-remove" onClick={() => setImageSlots((slots) => slots.map((current, slotIndex) => slotIndex === index ? null : current))}>Hapus</button>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <small className="field-help">Setiap foto bisa diganti atau dihapus sebelum disimpan.</small>
               </div>
               <div className="full" style={{ display: "flex", gap: 24 }}>
                 <div className="checkbox-row">
@@ -287,7 +281,6 @@ export default function Admin() {
               <tr>
                 <th>Foto</th>
                 <th>Nama</th>
-                <th>Kategori</th>
                 <th>Harga</th>
                 <th>Status</th>
                 <th>Aksi</th>
@@ -295,10 +288,10 @@ export default function Admin() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan="6" style={{ textAlign: "center", padding: 30 }}>⏳ Memuat...</td></tr>
+                <tr><td colSpan="5" style={{ textAlign: "center", padding: 30 }}>⏳ Memuat...</td></tr>
               )}
               {!loading && products.length === 0 && (
-                <tr><td colSpan="6" style={{ textAlign: "center", padding: 30 }}>Belum ada produk.</td></tr>
+                <tr><td colSpan="5" style={{ textAlign: "center", padding: 30 }}>Belum ada produk.</td></tr>
               )}
               {!loading &&
                 products.map((p) => (
@@ -314,7 +307,6 @@ export default function Admin() {
                       {p.name}
                       {p.featured && <span className="tag-featured">Unggulan</span>}
                     </td>
-                    <td>{p.category}</td>
                     <td>{formatRp(p.price)}</td>
                     <td>{p.discount ? "Diskon" : "-"}</td>
                     <td>

@@ -14,7 +14,10 @@ const UPLOAD_DIR = path.join(__dirname, "uploads");
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const SUPABASE_BUCKET = process.env.SUPABASE_STORAGE_BUCKET || "product-images";
-const supabase = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+const hasSupabaseConfig = SUPABASE_URL && SUPABASE_SERVICE_ROLE_KEY
+  && !SUPABASE_SERVICE_ROLE_KEY.includes("ISI_")
+  && !SUPABASE_SERVICE_ROLE_KEY.includes("your-");
+const supabase = hasSupabaseConfig
   ? createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
   : null;
 
@@ -33,8 +36,14 @@ function writeDB(data) {
 }
 
 function fromProduct(row) {
+  const images = Array.isArray(row.images) && row.images.length
+    ? row.images
+    : row.image ? [row.image] : [];
   return {
     ...row,
+    images,
+    image: images[0] || null,
+    specifications: row.specifications || [row.caliber, row.length, row.weight].filter(Boolean).filter((value) => value !== "-").join(" | "),
     priceOld: row.price_old ?? row.priceOld ?? 0,
     price: row.price ?? 0,
   };
@@ -94,6 +103,21 @@ async function uploadImage(file) {
   if (error) throw error;
   const { data } = supabase.storage.from(SUPABASE_BUCKET).getPublicUrl(filePath);
   return data.publicUrl;
+}
+
+async function uploadImages(files = []) {
+  return Promise.all(files.slice(0, 3).map((file) => uploadImage(file)));
+}
+
+async function resolveImageSlots(rawSlots, files = [], fallback = []) {
+  const slots = Array.isArray(rawSlots) ? rawSlots.slice(0, 3) : [...fallback].slice(0, 3);
+  for (const file of files) {
+    const index = Number(file.fieldname.replace("image", ""));
+    if (Number.isInteger(index) && index >= 0 && index < 3) {
+      slots[index] = await uploadImage(file);
+    }
+  }
+  return slots.filter(Boolean);
 }
 
 // ---------- multer (image upload) ----------
@@ -159,7 +183,7 @@ app.get("/api/products/:id", async (req, res, next) => {
   }
 });
 
-app.post("/api/products", upload.single("image"), async (req, res, next) => {
+app.post("/api/products", upload.any(), async (req, res, next) => {
   try {
     const body = req.body;
     const newProduct = {
@@ -167,6 +191,7 @@ app.post("/api/products", upload.single("image"), async (req, res, next) => {
       name: body.name || "Produk Baru",
       category: body.category || "Lainnya",
       description: body.description || "",
+      specifications: body.specifications || "",
       caliber: body.caliber || "-",
       length: body.length || "-",
       weight: body.weight || "-",
@@ -174,7 +199,7 @@ app.post("/api/products", upload.single("image"), async (req, res, next) => {
       price: Number(body.price) || 0,
       discount: body.discount === "true" || body.discount === true,
       featured: body.featured === "true" || body.featured === true,
-      image: await uploadImage(req.file),
+      images: await resolveImageSlots(JSON.parse(req.body.imageSlots || "[]"), req.files),
     };
     if (!supabase) {
       const db = readDB();
@@ -190,7 +215,7 @@ app.post("/api/products", upload.single("image"), async (req, res, next) => {
   }
 });
 
-app.put("/api/products/:id", upload.single("image"), async (req, res, next) => {
+app.put("/api/products/:id", upload.any(), async (req, res, next) => {
   try {
     const existing = await getProduct(req.params.id);
     if (!existing) return res.status(404).json({ error: "Produk tidak ditemukan" });
@@ -200,6 +225,7 @@ app.put("/api/products/:id", upload.single("image"), async (req, res, next) => {
       name: body.name ?? existing.name,
       category: body.category ?? existing.category,
       description: body.description ?? existing.description ?? "",
+      specifications: body.specifications ?? existing.specifications ?? "",
       caliber: body.caliber ?? existing.caliber,
       length: body.length ?? existing.length,
       weight: body.weight ?? existing.weight,
@@ -207,7 +233,11 @@ app.put("/api/products/:id", upload.single("image"), async (req, res, next) => {
       price: body.price !== undefined ? Number(body.price) : existing.price,
       discount: body.discount !== undefined ? (body.discount === "true" || body.discount === true) : existing.discount,
       featured: body.featured !== undefined ? (body.featured === "true" || body.featured === true) : existing.featured,
-      image: req.file ? await uploadImage(req.file) : existing.image,
+      images: await resolveImageSlots(
+        req.body.imageSlots ? JSON.parse(req.body.imageSlots) : undefined,
+        req.files,
+        existing.images || (existing.image ? [existing.image] : [])
+      ),
     };
     if (!supabase) {
       const db = readDB();

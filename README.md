@@ -50,8 +50,10 @@ Buka `http://localhost:5173/admin` (atau klik link "⚙️ Admin" di footer).
 
 Dari admin panel kamu bisa:
 - Tambah produk baru (termasuk upload foto)
+- Upload hingga 3 foto per produk dengan carousel otomatis dan swipe di halaman detail
 - Edit produk yang sudah ada
 - Mengisi dan mengubah deskripsi produk
+- Mengisi spesifikasi bebas untuk berbagai jenis produk
 - Hapus produk
 - Data tersimpan ke Supabase jika env Supabase aktif, atau `backend/db.json` saat fallback lokal
 

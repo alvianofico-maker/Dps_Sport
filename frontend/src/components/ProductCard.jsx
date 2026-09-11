@@ -1,5 +1,6 @@
 import React from "react";
-import { formatRp, waHref } from "../api.js";
+import { Link } from "react-router-dom";
+import { formatRp } from "../api.js";
 
 function GunIcon() {
   return (
@@ -18,13 +19,6 @@ function GunIcon() {
 }
 
 export default function ProductCard({ product, settings, index = 0 }) {
-  const wa = waHref(
-    settings?.whatsapp || "6282178496326",
-    `Halo Dps Sport, saya tertarik dengan produk ${product.name} seharga ${formatRp(
-      product.price
-    )}. Apakah masih tersedia?`
-  );
-
   return (
     <div className="card fade-up" style={{ animationDelay: `${(index % 6) * 0.05}s` }}>
       {product.discount && <span className="badge">Diskon</span>}
@@ -33,20 +27,14 @@ export default function ProductCard({ product, settings, index = 0 }) {
       </div>
       <div className="card-body">
         <h3>{product.name}</h3>
-        {product.description && <p className="card-description">{product.description}</p>}
-        <div className="specs">
-          <span>🎯 Kaliber {product.caliber}</span>
-          <span>📏 Panjang {product.length}</span>
-          <span>⚖️ Berat {product.weight}</span>
-        </div>
         <div className="price-row">
           {product.discount && <span className="price-old">{formatRp(product.priceOld)}</span>}
           <span className="price-new">{formatRp(product.price)}</span>
         </div>
         <div className="card-actions">
-          <a href={wa} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-sm btn-block">
-            Tanya via WhatsApp <span aria-hidden="true">↗</span>
-          </a>
+          <Link to={`/produk/${product.id}`} className="btn btn-outline btn-sm btn-block">
+            Lihat Detail <span aria-hidden="true">↗</span>
+          </Link>
         </div>
       </div>
     </div>
