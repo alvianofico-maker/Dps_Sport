@@ -1,0 +1,16 @@
+{
+  "name": "dps-sport-vercel",
+  "private": true,
+  "version": "1.0.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2",
+    "multer": "^2.0.0",
+    "nanoid": "^3.3.7"
+  }
+}
